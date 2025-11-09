@@ -1,0 +1,10 @@
+.idea
+aie
+aie.egg-info
+build
+cmake-build-debug
+mlir
+mlir_aie
+requirements.txt
+scripts
+wheelhouse
