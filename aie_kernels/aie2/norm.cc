@@ -16,52 +16,62 @@
 #include "../aie_kernel_utils.h"
 #include <aie_api/aie.hpp>
 
-static void _reduce_add_scalar(int32_t *restrict in, int32_t *restrict out,
-                               const int32_t input_size) {
-  event0();
-  int32_t running_total = 0;
-  for (int32_t i = 0; i < input_size; i++) {
-    running_total = running_total + in[i];
-  }
-  *out = running_total;
-  event1();
-  return;
-}
+// static void _reduce_add_scalar(int32_t *restrict in, int32_t *restrict out,
+//                                const int32_t input_size) {
+//   event0();
+//   int32_t running_total = 0;
+//   for (int32_t i = 0; i < input_size; i++) {
+//     running_total = running_total + in[i];
+//   }
+//   *out = running_total;
+//   event1();
+//   return;
+// }
 
-static void _reduce_add_vector(int32_t *restrict in, int32_t *restrict out,
-                               const int32_t input_size) {
-  event0();
-  v16int32 zero = broadcast_to_v16int32((int32_t)0);
-  const int32_t vector_size = 16;
-  v16int32 after_vector;
-  v16int32 running_total = zero;
-  AIE_PREPARE_FOR_PIPELINING
-  AIE_LOOP_MIN_ITERATION_COUNT(8)
-  for (int32_t i = 0; i < input_size; i += vector_size) {
-    v16int32 next = *(v16int32 *)(in + i);
-    v16int32 test = add(running_total, next);
-    running_total = test;
+// static void _reduce_add_vector(int32_t *restrict in, int32_t *restrict out,
+//                                const int32_t input_size) {
+//   event0();
+//   v16int32 zero = broadcast_to_v16int32((int32_t)0);
+//   const int32_t vector_size = 16;
+//   v16int32 after_vector;
+//   v16int32 running_total = zero;
+//   AIE_PREPARE_FOR_PIPELINING
+//   AIE_LOOP_MIN_ITERATION_COUNT(8)
+//   for (int32_t i = 0; i < input_size; i += vector_size) {
+//     v16int32 next = *(v16int32 *)(in + i);
+//     v16int32 test = add(running_total, next);
+//     running_total = test;
+//   }
+//   after_vector = running_total;
+//   v16int32 first = shift_bytes(after_vector, after_vector, 32U);
+//   v16int32 second = add(after_vector, first);
+//   v16int32 second_shift = shift_bytes(second, second, 16U);
+//   v16int32 third = add(second, second_shift);
+//   v16int32 third_shift = shift_bytes(third, third, 8U);
+//   v16int32 fourth = add(third, third_shift);
+//   v16int32 fourth_shift = shift_bytes(fourth, fourth, 4U);
+//   v16int32 fifth = add(fourth, fourth_shift);
+//   int32_t last = extract_elem(fifth, 0U);
+//   *(int32_t *)out = last;
+//   event1();
+//   return;
+// }
+
+static void _compute_norm(int32_t *restrict in, int32_t *restrict out, const int32_t n_rows, const int32_t n_cols) {
+
+  constexpr int VEC_WIDTH = 16;
+
+  for(int i = 0; i < n_rows; i++) {
+    const int32_t *row_ptr = in + i * n_cols;
+    auto v = aie::load_v<VEC_WIDTH>(row_ptr);
+    auto sq_acc = aie::mul(v, v);
+    auto sq_vec = aie::to_vector<int32_t>(sq_acc);
+    out[i] = aie::reduce_add(sq_vec);
   }
-  after_vector = running_total;
-  v16int32 first = shift_bytes(after_vector, after_vector, 32U);
-  v16int32 second = add(after_vector, first);
-  v16int32 second_shift = shift_bytes(second, second, 16U);
-  v16int32 third = add(second, second_shift);
-  v16int32 third_shift = shift_bytes(third, third, 8U);
-  v16int32 fourth = add(third, third_shift);
-  v16int32 fourth_shift = shift_bytes(fourth, fourth, 4U);
-  v16int32 fifth = add(fourth, fourth_shift);
-  int32_t last = extract_elem(fifth, 0U);
-  *(int32_t *)out = last;
-  event1();
-  return;
 }
 
 extern "C" {
-void reduce_add_vector(int32_t *a_in, int32_t *c_out, int32_t input_size) {
-  _reduce_add_vector(a_in, c_out, input_size);
-}
-void reduce_add_scalar(int32_t *a_in, int32_t *c_out, int32_t input_size) {
-  _reduce_add_scalar(a_in, c_out, input_size);
+void compute_norm(int32_t *a_in, int32_t *c_out, int32_t n_rows, int32_t n_cols) {
+  _compute_norm(a_in, c_out, n_rows, n_cols);
 }
 } // extern "C"

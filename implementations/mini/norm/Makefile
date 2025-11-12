@@ -13,7 +13,7 @@ srcdir := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 include ${srcdir}/../../makefile-common
 
 targetname = norm
-devicename ?= $(if $(filter 1,$(NPU2)),npu2,npu)
+devicename = npu
 col = 0
 
 aie_py_src=${targetname}.py
@@ -34,7 +34,7 @@ build/aie.mlir: ${srcdir}/${aie_py_src}
 	mkdir -p ${@D}
 	python3 $< ${devicename} ${col} > $@
 
-build/final.xclbin: build/aie.mlir build/reduce_add.cc.o
+build/final.xclbin: build/aie.mlir build/norm.cc.o
 	mkdir -p ${@D}
 	cd ${@D} && aiecc.py --aie-generate-xclbin --no-compile-host --xclbin-name=${@F} \
     	--no-xchesscc --no-xbridge --peano ${PEANO_INSTALL_DIR} \

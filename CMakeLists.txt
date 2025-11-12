@@ -164,7 +164,9 @@ find_library(UUID uuid)
 cmake_dependent_option(AIE_ENABLE_XRT_PYTHON_BINDINGS
   "Enables building of python bindings to XRT runtime." ON "XRT_COREUTIL;UUID" OFF)
 if (AIE_ENABLE_XRT_PYTHON_BINDINGS)
-  add_library(xrt_coreutil SHARED IMPORTED)
+  add_library(xrt_coreutil SHARED IMPORTED
+          aie_kernels/aie2/norm.cc
+          aie_kernels/aie2/norm.cc)
   set_property(TARGET xrt_coreutil PROPERTY IMPORTED_LOCATION "${XRT_COREUTIL}")
 endif()
 
